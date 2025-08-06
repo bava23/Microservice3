@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: product-service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/product_db_m
+    username: root
+    password: root
+
+  jpa:
+    hibernate:
+      ddl-auto: update # change to create if needed
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+server:
+  port: 8081
+
+# Eureka configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+  springdoc:
+    api-docs:
+      enabled: false
+    swagger-ui:
+      urls:
+        - url: /swagger.yaml
+          name: Product Service API
+      path: /swagger-ui.html
+
+  logging:
+    level:
+      com.example.product_service: DEBUG
+
+
+
+
+
+
+
+
