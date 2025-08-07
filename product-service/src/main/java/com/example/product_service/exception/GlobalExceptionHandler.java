@@ -49,6 +49,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, WebRequest request) {
+        String message = "Invalid input format";
+
+        if (ex.getCause() instanceof InvalidFormatException ife) {
+            message = "Invalid value for field: " + ife.getPath().get(0).getFieldName();
+        }
+
+        return buildError(HttpStatus.BAD_REQUEST, "Malformed JSON Request", message, request);
+    }
 
     private ResponseEntity<Object> buildError(HttpStatus status, String error, String message, WebRequest request) {
         Map<String, Object> body = new HashMap<>();

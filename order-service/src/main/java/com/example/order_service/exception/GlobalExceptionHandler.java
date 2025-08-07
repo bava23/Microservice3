@@ -1,5 +1,7 @@
 package com.example.order_service.exception;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
@@ -10,6 +12,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.LocalDateTime;
@@ -63,10 +66,43 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", ex.getStatusCode().value());
-        body.put("message", "Error calling external service");
-        body.put("error", ex.getResponseBodyAsString());
+        body.put("message", "Error calling Product Service");
+
+        // Try extracting just the message field from the JSON body
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode root = objectMapper.readTree(ex.getResponseBodyAsString());
+            String errorMessage = root.has("message") ? root.get("message").asText() : ex.getResponseBodyAsString();
+            body.put("error", errorMessage);
+        } catch (Exception e) {
+            body.put("error", ex.getResponseBodyAsString()); // fallback
+        }
+
         return new ResponseEntity<>(body, ex.getStatusCode());
     }
+
+    // Handle Product Service Down or Unavailable
+    @ExceptionHandler(ProductServiceUnavailable.class)
+    public ResponseEntity<Object> handleProductServiceDown(ProductServiceUnavailable ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    // Handle Product Service DOWN (no response at all)
+    @ExceptionHandler(WebClientRequestException.class)
+    public ResponseEntity<Object> handleWebClientRequestException(WebClientRequestException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        body.put("message", "Product Service is currently unavailable. Please try again later.");
+        body.put("error", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+
 
     // Handle database constraint violations
     @ExceptionHandler(DataIntegrityViolationException.class)

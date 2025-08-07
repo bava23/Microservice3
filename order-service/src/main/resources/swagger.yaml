@@ -1,0 +1,130 @@
+openapi: 3.0.1
+info:
+  title: Order Service API
+  description: APIs for managing orders in the system
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8082
+    description: Local Order Service
+
+tags:
+  - name: Orders
+    description: APIs for managing orders
+
+paths:
+  /orders/placeOrder:
+    post:
+      tags:
+        - Orders
+      summary: Place a new order
+      description: Creates a new order in the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '200':
+          description: Order placed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponseDTO'
+
+  /orders:
+    get:
+      tags:
+        - Orders
+      summary: Get all orders
+      description: Fetches all orders from the system
+      responses:
+        '200':
+          description: List of all orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderResponseDTO'
+
+  /orders/{id}:
+    put:
+      tags:
+        - Orders
+      summary: Update an order
+      description: Updates an existing order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '200':
+          description: Order updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponseDTO'
+
+    delete:
+      tags:
+        - Orders
+      summary: Delete an order
+      description: Deletes an order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Order deleted successfully
+
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        productId:
+          type: integer
+          example: 101
+        quantity:
+          type: integer
+          example: 2
+      required:
+        - productId
+        - quantity
+
+    OrderResponseDTO:
+      type: object
+      properties:
+        orderId:
+          type: integer
+          example: 1
+        productId:
+          type: integer
+          example: 101
+        quantity:
+          type: integer
+          example: 2
+        productName:
+          type: string
+          example: "Laptop"
+        productPrice:
+          type: number
+          format: double
+          example: 55000
+        totalPrice:
+          type: number
+          format: double
+          example: 110000

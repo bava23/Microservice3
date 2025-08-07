@@ -49,4 +49,27 @@ public class OrderController {
 
         return ResponseEntity.ok(orders);
     }
+
+    // ✅ Update Order
+    @PutMapping("/{id}")
+    public ResponseEntity<OrderResponseDTO> updateOrder(
+            @PathVariable Long id,
+            @Valid @RequestBody Order updatedOrder) {
+
+        log.info("Updating order | orderId={}", id);
+        OrderResponseDTO updatedResponse = orderService.updateOrder(id, updatedOrder);
+        log.info("Order updated successfully | orderId={}", id);
+
+        return ResponseEntity.ok(updatedResponse);
+    }
+
+    // ✅ Delete Order
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
+        log.info("Deleting order | orderId={}", id);
+        orderService.deleteOrder(id);
+        log.info("Order deleted successfully | orderId={}", id);
+
+        return ResponseEntity.noContent().build();
+    }
 }
