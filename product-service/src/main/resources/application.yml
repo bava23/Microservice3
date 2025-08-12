@@ -40,6 +40,13 @@ eureka:
     level:
       com.example.product_service: DEBUG
 
+  spring:
+    jackson:
+      deserialization:
+        fail-on-numbers-for-strings: true
+
+
+
 
 
 

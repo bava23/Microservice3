@@ -1,6 +1,8 @@
 package com.example.product_service.controller;
 
+import com.example.product_service.dto.ProductRequestDTO;
 import com.example.product_service.entity.Product;
+import com.example.product_service.mapper.ProductMapper;
 import com.example.product_service.service.ProductService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -17,7 +19,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/products")
 @Validated
-@Slf4j // Lombok annotation for logging
+@Slf4j
 public class ProductController {
 
     @Autowired
@@ -25,14 +27,14 @@ public class ProductController {
 
     // Create a product
     @PostMapping
-    public Product addProduct(@Valid @RequestBody Product product) {
-        log.info("Request to add product: {}", product.getName());
-        log.debug("Full product payload: {}", product);
+    public ResponseEntity<Product> addProduct(@Valid @RequestBody ProductRequestDTO productRequestDTO) {
+        log.info("Request to add product: {}", productRequestDTO.getName());
 
+        Product product = ProductMapper.toEntity(productRequestDTO);
         Product savedProduct = productService.addProduct(product);
 
         log.info("Product created with ID: {}", savedProduct.getId());
-        return savedProduct;
+        return ResponseEntity.ok(savedProduct);
     }
 
     // Get all products
@@ -63,11 +65,11 @@ public class ProductController {
     @PutMapping("/{productId}")
     public ResponseEntity<Product> updateProduct(
             @PathVariable Long productId,
-            @Valid @RequestBody Product updatedProduct) {
+            @Valid @RequestBody ProductRequestDTO updatedProductDTO) {
 
         log.info("Request to update product with ID: {}", productId);
-        log.debug("Updated product payload: {}", updatedProduct);
 
+        Product updatedProduct = ProductMapper.toEntity(updatedProductDTO);
         Product product = productService.updateProduct(productId, updatedProduct);
 
         log.info("Product updated successfully: {}", product.getId());

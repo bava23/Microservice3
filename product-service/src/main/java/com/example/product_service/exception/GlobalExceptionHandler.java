@@ -1,8 +1,8 @@
 package com.example.product_service.exception;
 
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import jakarta.validation.ConstraintViolation;
-
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,21 +20,23 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    // Resource Not Found
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Object> handleResourceNotFound(ResourceNotFoundException ex, WebRequest request) {
         return buildError(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage(), request);
     }
 
+    // Validation (DTO fields)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Object> handleValidation(MethodArgumentNotValidException ex, WebRequest request) {
-        String message = ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-        return buildError(HttpStatus.BAD_REQUEST, "Validation Failed", message, request);
+    public ResponseEntity<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+                errors.put(error.getField(), error.getDefaultMessage())
+        );
+        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Object> handleGlobalException(Exception ex, WebRequest request) {
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", ex.getMessage(), request);
-    }
+    // PathVariable / RequestParam validations
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException ex) {
         List<String> errors = ex.getConstraintViolations()
@@ -49,17 +51,40 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    // JSON Parsing Errors
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, WebRequest request) {
-        String message = "Invalid input format";
+    public ResponseEntity<Map<String, String>> handleJsonParseErrors(HttpMessageNotReadableException ex) {
+        Map<String, String> errors = new HashMap<>();
+        Throwable cause = ex.getCause();
 
-        if (ex.getCause() instanceof InvalidFormatException ife) {
-            message = "Invalid value for field: " + ife.getPath().get(0).getFieldName();
+        if (cause instanceof MismatchedInputException mismatched) {
+            String fieldName = mismatched.getPath().stream()
+                    .findFirst()
+                    .map(ref -> ref.getFieldName())
+                    .orElse("unknown");
+
+            if ("name".equals(fieldName)) {
+                errors.put("name", "Product name must be a string");
+            } else {
+                errors.put("error", "Invalid data type for field: " + fieldName);
+            }
+        } else if (cause instanceof InvalidFormatException ife) {
+            String field = ife.getPath().get(0).getFieldName();
+            errors.put("error", "Invalid format for field: " + field);
+        } else {
+            errors.put("error", "Malformed JSON or invalid request data");
         }
 
-        return buildError(HttpStatus.BAD_REQUEST, "Malformed JSON Request", message, request);
+        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 
+    // Global Fallback
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Object> handleGlobalException(Exception ex, WebRequest request) {
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", ex.getMessage(), request);
+    }
+
+    // Common builder
     private ResponseEntity<Object> buildError(HttpStatus status, String error, String message, WebRequest request) {
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", LocalDateTime.now());

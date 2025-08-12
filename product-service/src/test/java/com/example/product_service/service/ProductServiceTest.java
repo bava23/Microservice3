@@ -5,10 +5,14 @@ import com.example.product_service.exception.ResourceNotFoundException;
 import com.example.product_service.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.*;
-import java.util.*;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -20,85 +24,111 @@ class ProductServiceTest {
     @InjectMocks
     private ProductService productService;
 
-    private Product sampleProduct;
-
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        sampleProduct = new Product(1L, "Laptop", 1500.0);
     }
 
-    // 1️⃣ Test addProduct
+    // ----------------- Add Product -----------------
     @Test
     void testAddProduct() {
-        when(productRepository.save(sampleProduct)).thenReturn(sampleProduct);
+        Product laptop = new Product();
+        laptop.setId(1L);
+        laptop.setName("Laptop");
+        laptop.setPrice(75000.0);
 
-        Product saved = productService.addProduct(sampleProduct);
+        when(productRepository.save(any(Product.class))).thenReturn(laptop);
 
-        assertThat(saved).isNotNull();
-        assertThat(saved.getName()).isEqualTo("Laptop");
-        verify(productRepository, times(1)).save(sampleProduct);
+        Product saved = productService.addProduct(laptop);
+
+        assertNotNull(saved);
+        assertEquals("Laptop", saved.getName());
+        assertEquals(75000.0, saved.getPrice());
+        verify(productRepository, times(1)).save(laptop);
     }
 
-    // 2️⃣ Test getAllProducts
+    // ----------------- Get All Products -----------------
     @Test
     void testGetAllProducts() {
-        when(productRepository.findAll()).thenReturn(List.of(sampleProduct));
+        Product laptop = new Product(1L, "Laptop", 75000.0);
+        Product phone = new Product(2L, "Phone", 50000.0);
+
+        when(productRepository.findAll()).thenReturn(Arrays.asList(laptop, phone));
 
         List<Product> products = productService.getAllProducts();
 
-        assertThat(products).hasSize(1);
-        assertThat(products.get(0).getName()).isEqualTo("Laptop");
+        assertEquals(2, products.size());
         verify(productRepository, times(1)).findAll();
     }
 
-    // 3️⃣ Test getProductById - Found
+    // ----------------- Get Product by ID -----------------
     @Test
     void testGetProductById_Found() {
-        when(productRepository.findById(1L)).thenReturn(Optional.of(sampleProduct));
+        Product laptop = new Product(1L, "Laptop", 75000.0);
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(laptop));
 
         Product found = productService.getProductById(1L);
 
-        assertThat(found).isNotNull();
-        assertThat(found.getId()).isEqualTo(1L);
+        assertNotNull(found);
+        assertEquals("Laptop", found.getName());
         verify(productRepository, times(1)).findById(1L);
     }
 
-    // 4️⃣ Test getProductById - Not Found
     @Test
     void testGetProductById_NotFound() {
+        when(productRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> productService.getProductById(99L));
+        verify(productRepository, times(1)).findById(99L);
+    }
+
+    // ----------------- Update Product -----------------
+    @Test
+    void testUpdateProduct_Found() {
+        Product existingLaptop = new Product(1L, "Laptop", 75000.0);
+        Product updatedLaptop = new Product(1L, "Gaming Laptop", 90000.0);
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(existingLaptop));
+        when(productRepository.save(any(Product.class))).thenReturn(updatedLaptop);
+
+        Product result = productService.updateProduct(1L, updatedLaptop);
+
+        assertEquals("Gaming Laptop", result.getName());
+        assertEquals(90000.0, result.getPrice());
+        verify(productRepository, times(1)).findById(1L);
+        verify(productRepository, times(1)).save(existingLaptop);
+    }
+
+    @Test
+    void testUpdateProduct_NotFound() {
+        Product updatedLaptop = new Product(1L, "Gaming Laptop", 90000.0);
+
         when(productRepository.findById(1L)).thenReturn(Optional.empty());
 
-        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
-                () -> productService.getProductById(1L));
-
-        assertThat(ex.getMessage()).isEqualTo("Product not found with ID: 1");
+        assertThrows(ResourceNotFoundException.class, () -> productService.updateProduct(1L, updatedLaptop));
         verify(productRepository, times(1)).findById(1L);
     }
 
-    // 5️⃣ Test updateProduct
+    // ----------------- Delete Product -----------------
     @Test
-    void testUpdateProduct() {
-        Product updatedData = new Product(1L, "Updated Laptop", 2000.0);
+    void testDeleteProduct_Found() {
+        Product laptop = new Product(1L, "Laptop", 75000.0);
 
-        when(productRepository.findById(1L)).thenReturn(Optional.of(sampleProduct));
-        when(productRepository.save(any(Product.class))).thenReturn(updatedData);
-
-        Product updated = productService.updateProduct(1L, updatedData);
-
-        assertThat(updated.getName()).isEqualTo("Updated Laptop");
-        assertThat(updated.getPrice()).isEqualTo(2000.0);
-        verify(productRepository, times(1)).save(sampleProduct);
-    }
-
-    // 6️⃣ Test deleteProduct
-    @Test
-    void testDeleteProduct() {
-        when(productRepository.findById(1L)).thenReturn(Optional.of(sampleProduct));
-        doNothing().when(productRepository).delete(sampleProduct);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(laptop));
+        doNothing().when(productRepository).delete(laptop);
 
         productService.deleteProduct(1L);
 
-        verify(productRepository, times(1)).delete(sampleProduct);
+        verify(productRepository, times(1)).findById(1L);
+        verify(productRepository, times(1)).delete(laptop);
+    }
+
+    @Test
+    void testDeleteProduct_NotFound() {
+        when(productRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> productService.deleteProduct(1L));
+        verify(productRepository, times(1)).findById(1L);
     }
 }

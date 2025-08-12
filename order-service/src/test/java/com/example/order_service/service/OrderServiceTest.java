@@ -4,6 +4,7 @@ import com.example.order_service.dto.OrderResponseDTO;
 import com.example.order_service.dto.ProductDTO;
 import com.example.order_service.entity.Order;
 import com.example.order_service.repository.OrderRepository;
+import com.example.order_service.security.InternalTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
@@ -11,6 +12,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -38,6 +40,9 @@ class OrderServiceTest {
     @Mock
     private WebClient.ResponseSpec responseSpec;
 
+    @Mock
+    private InternalTokenService internalTokenService;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -60,10 +65,14 @@ class OrderServiceTest {
         productDTO.setName("Test Product");
         productDTO.setPrice(100.0);
 
-        // Mock WebClient chain — using casting to avoid generic compile issues
+        // Mock token service
+        when(internalTokenService.getServiceToken()).thenReturn("dummy-token");
+
+        // Mock WebClient chain
         when(webClientBuilder.build()).thenReturn(webClient);
         when(webClient.get()).thenReturn((WebClient.RequestHeadersUriSpec) requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn((WebClient.RequestHeadersSpec) requestHeadersSpec);
+        when(requestHeadersSpec.header(eq("Authorization"), anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(ProductDTO.class)).thenReturn(Mono.just(productDTO));
     }
@@ -103,7 +112,6 @@ class OrderServiceTest {
 
     @Test
     void testGetAllOrders_WhenProductServiceFails() {
-        // Simulate product service failure
         when(orderRepository.findAll()).thenReturn(List.of(order));
         when(responseSpec.bodyToMono(ProductDTO.class)).thenReturn(Mono.error(new RuntimeException("Service down")));
 
@@ -117,4 +125,31 @@ class OrderServiceTest {
         assertEquals(0.0, response.getProductPrice());
         assertEquals(0.0, response.getTotalPrice());
     }
+    @Test
+    void testUpdateOrder() {
+        Order updatedOrder = new Order();
+        updatedOrder.setId(1L);
+        updatedOrder.setProductId(101L);
+        updatedOrder.setQuantity(5);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenReturn(updatedOrder);
+
+        OrderResponseDTO response = orderService.updateOrder(1L, updatedOrder);
+
+        assertNotNull(response);
+        assertEquals(1L, response.getOrderId());
+        assertEquals(5, response.getQuantity());
+        assertEquals(500.0, response.getTotalPrice());
+        verify(orderRepository, times(1)).save(updatedOrder);
+    }
+    @Test
+    void testDeleteOrder() {
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        orderService.deleteOrder(1L);
+
+        verify(orderRepository, times(1)).delete(order);
+    }
+
 }
